@@ -21,4 +21,4 @@ USER blueshield-server
 
 EXPOSE 3000
 
-ENTRYPOINT ["npm", "start"]
+ENTRYPOINT ["node", "dist/main.js"]
