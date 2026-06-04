@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../Blue-Shield-Client"
+		},
+		{
+			"path": "../../IDF/Home-Back-Office-Client"
+		},
+		{
+			"path": "../../IDF/Home-Back-Office-Server"
+		}
+	],
+	"settings": {
+	}
+}
