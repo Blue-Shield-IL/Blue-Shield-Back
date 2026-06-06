@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body } from "@nestjs/common";
 import { KeywordsService } from "./keywords.service";
+import { JwtPayload } from "@Interfaces/jwt-payload";
 import { CurrentUser } from "@Decorators/user.decorator";
 import { UsersService } from "@Modules/users/users.service";
+import { Body, Controller, Get, Post } from "@nestjs/common";
 
 @Controller("keywords")
 export class KeywordsController {
@@ -10,23 +11,19 @@ export class KeywordsController {
     private readonly usersService: UsersService
   ) {}
 
-  @Get("topics")
-  async getTopics() {
-    return this.keywordsService.getTopicsWithKeywords();
-  }
-
   @Get("me")
-  async getMyKeywords(@CurrentUser() user: { sub: string; email: string }) {
-    return this.keywordsService.getUserKeywords(user.sub);
+  async getMyKeywords(@CurrentUser() { sub }: JwtPayload) {
+    return this.keywordsService.getUserKeywords(sub);
   }
 
   @Post("onboarding")
   async onboarding(
-    @CurrentUser() user: { sub: string; email: string },
+    @CurrentUser() { sub }: JwtPayload,
     @Body() body: { topics: string[] }
   ) {
-    await this.keywordsService.setUserKeywordsByTopics(user.sub, body.topics);
-    await this.usersService.markAsOnboarded(user.sub);
+    await this.keywordsService.setUserKeywordsByTopicIds(sub, body.topics);
+    await this.usersService.markAsOnboarded(sub);
+
     return { message: "Onboarding completed" };
   }
 }

@@ -1,95 +1,65 @@
+import { uniq } from "lodash";
+import { In, Repository } from "typeorm";
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository } from "typeorm";
-import { Topic } from "./topic.model";
-import { Keyword } from "./keyword.model";
-import { TopicKeyword } from "./topic-keyword.model";
-import { UserKeyword } from "./user-keyword.model";
+import { UserKeyword } from "@Modules/userKeywords/user-keyword.model";
+import { TopicKeyword } from "@Modules/topicKeywords/topic-keyword.model";
 
 @Injectable()
 export class KeywordsService {
   constructor(
-    @InjectRepository(Topic)
-    private readonly topicRepository: Repository<Topic>,
-    @InjectRepository(Keyword)
-    private readonly keywordRepository: Repository<Keyword>,
-    @InjectRepository(TopicKeyword)
-    private readonly topicKeywordRepository: Repository<TopicKeyword>,
     @InjectRepository(UserKeyword)
-    private readonly userKeywordRepository: Repository<UserKeyword>
+    private readonly userKeywordRepository: Repository<UserKeyword>,
+    @InjectRepository(TopicKeyword)
+    private readonly topicKeywordRepository: Repository<TopicKeyword>
   ) {}
 
-  public getAllTopics = async () => {
-    return this.topicRepository.find({ order: { name: "ASC" } });
-  };
+  public getUserKeywords = async (userId: string) =>
+    (
+      await this.userKeywordRepository.find({
+        where: { userId },
+        relations: { keyword: true },
+      })
+    ).map(({ keyword }) => keyword);
 
-  public getTopicsWithKeywords = async () => {
-    const topics = await this.topicRepository.find({ order: { name: "ASC" } });
+  public setUserKeywordsByTopicIds = async (
+    userId: string,
+    topicIds: string[]
+  ) => {
     const topicKeywords = await this.topicKeywordRepository.find({
-      relations: { topic: true, keyword: true },
+      where: { topicId: In(topicIds) },
     });
 
-    return topics.map(topic => ({
-      ...topic,
-      keywords: topicKeywords
-        .filter(tk => tk.topic_id === topic.id)
-        .map(tk => tk.keyword),
-    }));
-  };
+    const keywordIds = uniq(topicKeywords.map(({ keywordId }) => keywordId));
 
-  public getUserKeywords = async (userId: string) => {
-    const userKeywords = await this.userKeywordRepository.find({
-      where: { user_id: userId },
-      relations: { keyword: true },
-    });
-
-    return userKeywords.map(uk => uk.keyword);
-  };
-
-  public setUserKeywordsByTopics = async (userId: string, topicIds: string[]) => {
-    // Find all keywords linked to those topics
-    const topicKeywords = await this.topicKeywordRepository.find({
-      where: { topic_id: In(topicIds) },
-    });
-
-    const keywordIds = [...new Set(topicKeywords.map(tk => tk.keyword_id))];
-
-    // Remove all existing user keywords
-    await this.userKeywordRepository.delete({ user_id: userId });
-
-    // Insert new user keywords
     if (keywordIds.length > 0) {
-      const userKeywords = keywordIds.map(keywordId =>
-        this.userKeywordRepository.create({ user_id: userId, keyword_id: keywordId })
-      );
-      await this.userKeywordRepository.save(userKeywords);
+      await this.userKeywordRepository
+        .createQueryBuilder()
+        .insert()
+        .into(UserKeyword)
+        .values(keywordIds.map(keywordId => ({ userId, keywordId })))
+        .orIgnore()
+        .execute();
     }
-
-    return this.getUserKeywords(userId);
   };
 
   public addKeywordsToUser = async (userId: string, keywordIds: string[]) => {
-    const userKeywords = keywordIds.map(keywordId =>
-      this.userKeywordRepository.create({ user_id: userId, keyword_id: keywordId })
-    );
-
     await this.userKeywordRepository
       .createQueryBuilder()
       .insert()
       .into(UserKeyword)
-      .values(userKeywords)
+      .values(keywordIds.map(keywordId => ({ userId, keywordId })))
       .orIgnore()
       .execute();
-
-    return this.getUserKeywords(userId);
   };
 
-  public removeKeywordsFromUser = async (userId: string, keywordIds: string[]) => {
+  public removeKeywordsFromUser = async (
+    userId: string,
+    keywordIds: string[]
+  ) => {
     await this.userKeywordRepository.delete({
-      user_id: userId,
-      keyword_id: In(keywordIds),
+      userId,
+      keywordId: In(keywordIds),
     });
-
-    return this.getUserKeywords(userId);
   };
 }

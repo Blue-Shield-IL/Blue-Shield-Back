@@ -1,31 +1,31 @@
+import { User } from "@Modules/users/users.model";
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  CreateDateColumn,
+  PrimaryGeneratedColumn,
 } from "typeorm";
-import { User } from "@Modules/users/users.model";
 
 @Entity("refresh_tokens")
 export class RefreshToken {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
-  @Column({ type: "uuid", nullable: false })
-  user_id!: string;
+  @Column()
+  userId!: string;
 
   @ManyToOne(() => User, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "user_id" })
+  @JoinColumn()
   user!: User;
 
-  @Column({ type: "varchar", length: 255, nullable: false })
-  token_hash!: string;
+  @Column()
+  tokenHash!: string;
 
-  @Column({ type: "timestamp", nullable: false })
-  expires_at!: Date;
+  @Column({ type: "timestamp" })
+  expiresAt!: Date;
 
-  @CreateDateColumn({ type: "timestamp", default: () => "NOW()" })
-  created_at!: Date;
+  @CreateDateColumn()
+  createdAt!: Date;
 }

@@ -5,13 +5,16 @@ import {
   PrimaryGeneratedColumn,
 } from "typeorm";
 
-@Entity("keywords")
-export class Keyword {
+@Entity("topics")
+export class Topic {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
   @Column({ unique: true })
-  word!: string;
+  name!: string;
+
+  @Column({ type: "varchar", nullable: true })
+  icon!: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;

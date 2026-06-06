@@ -1,9 +1,8 @@
 import morgan from "morgan";
-import cookieParser from "cookie-parser";
-import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { AppModule } from "./app.module";
+import cookieParser from "cookie-parser";
+import { NestFactory, Reflector } from "@nestjs/core";
+import { ClassSerializerInterceptor, ValidationPipe } from "@nestjs/common";
 
 const main = async () => {
   const app = await NestFactory.create(AppModule);
@@ -19,16 +18,15 @@ const main = async () => {
     })
   );
 
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+
   app.enableCors({
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
   });
 
-  const configService = app.get(ConfigService);
-  const port = configService.get<number>("PORT", 3000);
-
-  await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  const PORT = parseInt(process.env.PORT || "3000");
+  await app.listen(PORT, () => console.log(`Listening on port: ${PORT}`));
 };
 
 main();

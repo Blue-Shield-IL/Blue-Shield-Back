@@ -1,16 +1,19 @@
 import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
-import { ThrottlerModule } from "@nestjs/throttler";
-import { DatabaseModule } from "@Providers/database/database.provider";
-import { UsersModule } from "@Modules/users/users.module";
-import { AuthModule } from "@Modules/auth/auth.module";
-import { KeywordsModule } from "@Modules/keywords/keywords.module";
-import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
+import { ConfigModule } from "@nestjs/config";
+import { AppController } from "./app.controller";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { JwtAuthGuard } from "@Guards/jwt-auth.guard";
+import { AuthModule } from "@Modules/auth/auth.module";
+import { UsersModule } from "@Modules/users/users.module";
+import { TopicsModule } from "@Modules/topics/topics.module";
 import { CustomThrottlerGuard } from "@Guards/throttler.guard";
 import { JwtStrategy } from "@Middleware/passport/jwt.strategy";
+import { KeywordsModule } from "@Modules/keywords/keywords.module";
+import { DatabaseModule } from "@Providers/database/database.provider";
+import { UserKeywordsModule } from "@Modules/userKeywords/user-keywords.module";
+import { TopicKeywordsModule } from "@Modules/topicKeywords/topicKeywords.module";
 
 @Module({
   imports: [
@@ -28,7 +31,10 @@ import { JwtStrategy } from "@Middleware/passport/jwt.strategy";
     DatabaseModule,
     UsersModule,
     AuthModule,
+    TopicsModule,
     KeywordsModule,
+    TopicKeywordsModule,
+    UserKeywordsModule,
   ],
   controllers: [AppController],
   providers: [

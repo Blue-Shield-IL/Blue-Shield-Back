@@ -1,17 +1,17 @@
+import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   Injectable,
-  ExecutionContext,
-  HttpException,
   HttpStatus,
+  HttpException,
+  ExecutionContext,
 } from "@nestjs/common";
-import { ThrottlerGuard } from "@nestjs/throttler";
 
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
   protected async throwThrottlingException(
     context: ExecutionContext,
-    throttlerLimitDetail: any
-  ): Promise<void> {
+    throttlerLimitDetail: { ttl: number }
+  ) {
     const response = context.switchToHttp().getResponse();
     const ttlSeconds = Math.ceil(throttlerLimitDetail.ttl / 1000);
 

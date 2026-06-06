@@ -1,24 +1,23 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-  BadRequestException,
-} from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcrypt";
 import * as crypto from "crypto";
-import { OAuth2Client } from "google-auth-library";
-import { UsersService } from "@Modules/users/users.service";
-import { RefreshToken } from "./refresh-token.model";
+import { Repository } from "typeorm";
+import { JwtService } from "@nestjs/jwt";
 import { LoginDto } from "./dto/login.dto";
-import { RegisterDto } from "./dto/register.dto";
+import { ConfigService } from "@nestjs/config";
 import { RefreshDto } from "./dto/refresh.dto";
-import { LogoutDto } from "./dto/logout.dto";
-import { ChangePasswordDto } from "./dto/change-password.dto";
+import { RegisterDto } from "./dto/register.dto";
+import { InjectRepository } from "@nestjs/typeorm";
+import { OAuth2Client } from "google-auth-library";
+import { RefreshToken } from "./refresh-token.model";
 import { GoogleAuthDto } from "./dto/google-auth.dto";
+import { UsersService } from "@Modules/users/users.service";
+import { ChangePasswordDto } from "./dto/change-password.dto";
+import {
+  Injectable,
+  ConflictException,
+  BadRequestException,
+  UnauthorizedException,
+} from "@nestjs/common";
 
 @Injectable()
 export class AuthService {
@@ -37,23 +36,23 @@ export class AuthService {
   }
 
   private getRefreshExpiry = (rememberMe?: boolean): Date => {
-    const now = new Date();
+    const expiryDate = new Date();
 
     if (rememberMe) {
       const days = parseInt(
-        this.configService.get<string>("REFRESH_TOKEN_EXPIRY_DAYS") || "30",
-        10
+        this.configService.get<string>("REFRESH_TOKEN_EXPIRY_DAYS") || "30"
       );
-      now.setDate(now.getDate() + days);
+
+      expiryDate.setDate(expiryDate.getDate() + days);
     } else {
       const hours = parseInt(
-        this.configService.get<string>("REFRESH_TOKEN_EXPIRY_HOURS") || "24",
-        10
+        this.configService.get<string>("REFRESH_TOKEN_EXPIRY_HOURS") || "24"
       );
-      now.setHours(now.getHours() + hours);
+
+      expiryDate.setHours(expiryDate.getHours() + hours);
     }
 
-    return now;
+    return expiryDate;
   };
 
   private generateTokens = async (
@@ -69,47 +68,28 @@ export class AuthService {
       .update(refreshToken)
       .digest("hex");
 
-    const expiresAt = this.getRefreshExpiry(rememberMe);
-
     const refreshTokenEntity = this.refreshTokenRepository.create({
-      user_id: user.id,
-      token_hash: tokenHash,
-      expires_at: expiresAt,
+      userId: user.id,
+      tokenHash,
+      expiresAt: this.getRefreshExpiry(rememberMe),
     });
+
     await this.refreshTokenRepository.save(refreshTokenEntity);
 
     return { accessToken, refreshToken };
-  };
-
-  private buildUserResponse = (user: {
-    id: string;
-    name: string | null;
-    email: string;
-    is_onboarded: boolean;
-    auth_provider: string;
-  }) => {
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      isOnboarded: user.is_onboarded,
-      authProvider: user.auth_provider,
-    };
   };
 
   public login = async (loginDto: LoginDto) => {
     const { email, password, rememberMe } = loginDto;
 
     const user = await this.usersService.findByEmail(email);
-    if (!user) {
+
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedException("Invalid email or password");
     }
 
-    if (!user.password_hash) {
-      throw new UnauthorizedException("Invalid email or password");
-    }
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
       throw new UnauthorizedException("Invalid email or password");
     }
@@ -120,9 +100,9 @@ export class AuthService {
     );
 
     return {
+      user,
       accessToken,
       refreshToken,
-      user: this.buildUserResponse(user),
     };
   };
 
@@ -130,6 +110,7 @@ export class AuthService {
     const { name, email, password } = registerDto;
 
     const existingUser = await this.usersService.findByEmail(email);
+
     if (existingUser) {
       throw new ConflictException("Email already in use");
     }
@@ -139,16 +120,16 @@ export class AuthService {
     const user = await this.usersService.create({
       name,
       email,
-      password_hash: passwordHash,
-      auth_provider: "local",
+      passwordHash,
+      authProvider: "local",
     });
 
     const { accessToken, refreshToken } = await this.generateTokens(user);
 
     return {
+      user,
       accessToken,
       refreshToken,
-      user: this.buildUserResponse(user),
     };
   };
 
@@ -161,7 +142,7 @@ export class AuthService {
       .digest("hex");
 
     const storedToken = await this.refreshTokenRepository.findOne({
-      where: { token_hash: tokenHash },
+      where: { tokenHash },
       relations: { user: true },
     });
 
@@ -169,8 +150,9 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
-    if (new Date() > storedToken.expires_at) {
+    if (new Date() > storedToken.expiresAt) {
       await this.refreshTokenRepository.remove(storedToken);
+
       throw new UnauthorizedException("Refresh token expired");
     }
 
@@ -182,16 +164,17 @@ export class AuthService {
     return { accessToken, refreshToken: newRefreshToken };
   };
 
-  public logout = async (userId: string, logoutDto: LogoutDto) => {
-    const { refreshToken } = logoutDto;
-
+  public logout = async (
+    userId: string,
+    { refreshToken }: { refreshToken: string }
+  ) => {
     const tokenHash = crypto
       .createHash("sha256")
       .update(refreshToken)
       .digest("hex");
 
     const storedToken = await this.refreshTokenRepository.findOne({
-      where: { token_hash: tokenHash, user_id: userId },
+      where: { tokenHash, userId },
     });
 
     if (storedToken) {
@@ -208,11 +191,12 @@ export class AuthService {
     const { current_password, new_password } = changePasswordDto;
 
     const user = await this.usersService.findById(userId);
+
     if (!user) {
       throw new UnauthorizedException("User not found");
     }
 
-    if (!user.password_hash) {
+    if (!user.passwordHash) {
       throw new BadRequestException(
         "Cannot change password for social login accounts"
       );
@@ -220,8 +204,9 @@ export class AuthService {
 
     const isCurrentValid = await bcrypt.compare(
       current_password,
-      user.password_hash
+      user.passwordHash
     );
+
     if (!isCurrentValid) {
       throw new UnauthorizedException("Current password is incorrect");
     }
@@ -241,28 +226,41 @@ export class AuthService {
     });
 
     const payload = ticket.getPayload();
+
     if (!payload || !payload.email) {
       throw new UnauthorizedException("Invalid Google token");
     }
 
     const { email, sub: googleId, name } = payload;
 
-    let user = await this.usersService.findByEmail(email);
+    const existingUser = await this.usersService.findByEmail(email);
 
-    if (user) {
-      if (!user.google_id) {
-        user = await this.usersService.updateGoogleId(user.id, googleId!);
+    let user: {
+      id: string;
+      email: string;
+      name: string | null;
+      googleId: string | null;
+      isOnboarded: boolean;
+      authProvider: string;
+    };
+
+    if (existingUser) {
+      if (!existingUser.googleId) {
+        await this.usersService.updateGoogleId(existingUser.id, googleId!);
       }
-      if (!user.name && name) {
-        await this.usersService.updateName(user.id, name);
-        user.name = name;
+
+      if (!existingUser.name && name) {
+        await this.usersService.updateName(existingUser.id, name);
+        existingUser.name = name;
       }
+
+      user = existingUser;
     } else {
       user = await this.usersService.create({
         email,
         name: name || null,
-        google_id: googleId,
-        auth_provider: "google",
+        googleId,
+        authProvider: "google",
       });
     }
 
@@ -272,9 +270,9 @@ export class AuthService {
     );
 
     return {
+      user,
       accessToken,
       refreshToken,
-      user: this.buildUserResponse(user),
     };
   };
 }

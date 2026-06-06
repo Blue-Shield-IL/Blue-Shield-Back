@@ -1,11 +1,11 @@
-import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { TypeOrmModule } from "@nestjs/typeorm";
+import { Module } from "@nestjs/common";
 import { AuthService } from "./auth.service";
+import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthController } from "./auth.controller";
-import { UsersModule } from "@Modules/users/users.module";
 import { RefreshToken } from "./refresh-token.model";
+import { UsersModule } from "@Modules/users/users.module";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 
 @Module({
   imports: [
@@ -17,9 +17,7 @@ import { RefreshToken } from "./refresh-token.model";
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>("JWT_SECRET"),
         signOptions: {
-          expiresIn:
-            (configService.get<string>("JWT_ACCESS_EXPIRATION") as any) ||
-            "15m",
+          expiresIn: configService.get("JWT_ACCESS_EXPIRATION", "15m"),
         },
       }),
     }),
