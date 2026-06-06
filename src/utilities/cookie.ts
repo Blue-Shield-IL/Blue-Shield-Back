@@ -5,4 +5,4 @@ export const setRefreshCookie = (res: Response, token: string) =>
   res.cookie(REFRESH_COOKIE, token, COOKIE_OPTIONS);
 
 export const clearRefreshCookie = (res: Response) =>
-  res.clearCookie(REFRESH_COOKIE, { path: "/auth" });
+  res.clearCookie(REFRESH_COOKIE, COOKIE_OPTIONS);

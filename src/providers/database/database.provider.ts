@@ -10,7 +10,7 @@ import { SnakeNamingStrategy } from "./snake-naming.strategy";
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: "postgres",
-        port: configService.get<number>("DB_PORT", 5432),
+        port: parseInt(configService.get<string>("DB_PORT", "5432")),
         host: configService.get<string>("DB_HOST", "localhost"),
         database: configService.get<string>("DB_NAME", "blue_shield"),
         username: configService.get<string>("DB_USERNAME", "postgres"),

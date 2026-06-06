@@ -1,4 +1,5 @@
 import { KeywordsService } from "./keywords.service";
+import { OnboardingDto } from "./dto/onboarding.dto";
 import { JwtPayload } from "@Interfaces/jwt-payload";
 import { CurrentUser } from "@Decorators/user.decorator";
 import { UsersService } from "@Modules/users/users.service";
@@ -19,9 +20,9 @@ export class KeywordsController {
   @Post("onboarding")
   async onboarding(
     @CurrentUser() { sub }: JwtPayload,
-    @Body() body: { topics: string[] }
+    @Body() { topics }: OnboardingDto
   ) {
-    await this.keywordsService.setUserKeywordsByTopicIds(sub, body.topics);
+    await this.keywordsService.setUserKeywordsByTopicIds(sub, topics);
     await this.usersService.markAsOnboarded(sub);
 
     return { message: "Onboarding completed" };

@@ -10,19 +10,17 @@ export class SnakeNamingStrategy
   columnName = (propertyName: string, customName?: string): string =>
     customName || this.toSnake(propertyName);
 
-  relationName = (propertyName: string): string => this.toSnake(propertyName);
+  relationName = (propertyName: string) => this.toSnake(propertyName);
 
-  joinColumnName = (
-    relationName: string,
-    referencedColumnName: string
-  ): string => this.toSnake(relationName) + "_" + referencedColumnName;
+  joinColumnName = (relationName: string, referencedColumnName: string) =>
+    this.toSnake(relationName) + "_" + this.toSnake(referencedColumnName);
 
   joinTableColumnName = (
     tableName: string,
     _propertyName: string,
     columnName?: string
-  ): string => this.toSnake(tableName) + "_" + (columnName || "id");
+  ) => this.toSnake(tableName) + "_" + this.toSnake(columnName || "id");
 
-  private toSnake = (str: string): string =>
+  private toSnake = (str: string) =>
     str.replace(/([A-Z])/g, (_, c, i) => (i > 0 ? "_" : "") + c.toLowerCase());
 }

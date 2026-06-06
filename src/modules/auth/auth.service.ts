@@ -188,7 +188,7 @@ export class AuthService {
     userId: string,
     changePasswordDto: ChangePasswordDto
   ) => {
-    const { current_password, new_password } = changePasswordDto;
+    const { currentPassword, newPassword } = changePasswordDto;
 
     const user = await this.usersService.findById(userId);
 
@@ -203,7 +203,7 @@ export class AuthService {
     }
 
     const isCurrentValid = await bcrypt.compare(
-      current_password,
+      currentPassword,
       user.passwordHash
     );
 
@@ -211,7 +211,7 @@ export class AuthService {
       throw new UnauthorizedException("Current password is incorrect");
     }
 
-    const newHash = await bcrypt.hash(new_password, 10);
+    const newHash = await bcrypt.hash(newPassword, 10);
     await this.usersService.updatePassword(userId, newHash);
 
     return { message: "Password changed successfully" };
