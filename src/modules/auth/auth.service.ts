@@ -134,7 +134,7 @@ export class AuthService {
   };
 
   public refresh = async (refreshDto: RefreshDto) => {
-    const { refreshToken, rememberMe } = refreshDto;
+    const { refreshToken } = refreshDto;
 
     const tokenHash = crypto
       .createHash("sha256")
@@ -159,7 +159,7 @@ export class AuthService {
     await this.refreshTokenRepository.remove(storedToken);
 
     const { accessToken, refreshToken: newRefreshToken } =
-      await this.generateTokens(storedToken.user, rememberMe);
+      await this.generateTokens(storedToken.user, true);
 
     return { accessToken, refreshToken: newRefreshToken };
   };
@@ -218,61 +218,65 @@ export class AuthService {
   };
 
   public googleAuth = async (googleAuthDto: GoogleAuthDto) => {
-    const { token, rememberMe } = googleAuthDto;
+    try {
+      const { token, rememberMe } = googleAuthDto;
 
-    const ticket = await this.googleClient.verifyIdToken({
-      idToken: token,
-      audience: this.configService.get<string>("GOOGLE_CLIENT_ID"),
-    });
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: token,
+        audience: this.configService.get<string>("GOOGLE_CLIENT_ID"),
+      });
 
-    const payload = ticket.getPayload();
+      const payload = ticket.getPayload();
 
-    if (!payload || !payload.email) {
+      if (!payload || !payload.email) {
+        throw new UnauthorizedException("Invalid Google token");
+      }
+
+      const { email, sub: googleId, name } = payload;
+
+      const existingUser = await this.usersService.findByEmail(email);
+
+      let user: {
+        id: string;
+        email: string;
+        name: string | null;
+        googleId: string | null;
+        isOnboarded: boolean;
+        authProvider: string;
+      };
+
+      if (existingUser) {
+        if (!existingUser.googleId) {
+          await this.usersService.updateGoogleId(existingUser.id, googleId!);
+        }
+
+        if (!existingUser.name && name) {
+          await this.usersService.updateName(existingUser.id, name);
+          existingUser.name = name;
+        }
+
+        user = existingUser;
+      } else {
+        user = await this.usersService.create({
+          email,
+          name: name || null,
+          googleId,
+          authProvider: "google",
+        });
+      }
+
+      const { accessToken, refreshToken } = await this.generateTokens(
+        user,
+        rememberMe
+      );
+
+      return {
+        user,
+        accessToken,
+        refreshToken,
+      };
+    } catch {
       throw new UnauthorizedException("Invalid Google token");
     }
-
-    const { email, sub: googleId, name } = payload;
-
-    const existingUser = await this.usersService.findByEmail(email);
-
-    let user: {
-      id: string;
-      email: string;
-      name: string | null;
-      googleId: string | null;
-      isOnboarded: boolean;
-      authProvider: string;
-    };
-
-    if (existingUser) {
-      if (!existingUser.googleId) {
-        await this.usersService.updateGoogleId(existingUser.id, googleId!);
-      }
-
-      if (!existingUser.name && name) {
-        await this.usersService.updateName(existingUser.id, name);
-        existingUser.name = name;
-      }
-
-      user = existingUser;
-    } else {
-      user = await this.usersService.create({
-        email,
-        name: name || null,
-        googleId,
-        authProvider: "google",
-      });
-    }
-
-    const { accessToken, refreshToken } = await this.generateTokens(
-      user,
-      rememberMe
-    );
-
-    return {
-      user,
-      accessToken,
-      refreshToken,
-    };
   };
 }
