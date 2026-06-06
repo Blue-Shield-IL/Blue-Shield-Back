@@ -1,6 +1,9 @@
+import { Keyword } from "@Modules/keywords/keyword.model";
 import {
   Entity,
   Column,
+  JoinTable,
+  ManyToMany,
   CreateDateColumn,
   PrimaryGeneratedColumn,
 } from "typeorm";
@@ -15,6 +18,14 @@ export class Topic {
 
   @Column({ type: "varchar", nullable: true })
   icon!: string | null;
+
+  @ManyToMany(() => Keyword)
+  @JoinTable({
+    name: "topic_keywords",
+    joinColumn: { name: "topic_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "keyword_id", referencedColumnName: "id" },
+  })
+  keywords!: Keyword[];
 
   @CreateDateColumn()
   createdAt!: Date;

@@ -2,16 +2,16 @@ import { uniq } from "lodash";
 import { In, Repository } from "typeorm";
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
+import { Topic } from "@Modules/topics/topic.model";
 import { UserKeyword } from "@Modules/userKeywords/user-keyword.model";
-import { TopicKeyword } from "@Modules/topicKeywords/topic-keyword.model";
 
 @Injectable()
 export class KeywordsService {
   constructor(
+    @InjectRepository(Topic)
+    private readonly topicRepository: Repository<Topic>,
     @InjectRepository(UserKeyword)
-    private readonly userKeywordRepository: Repository<UserKeyword>,
-    @InjectRepository(TopicKeyword)
-    private readonly topicKeywordRepository: Repository<TopicKeyword>
+    private readonly userKeywordRepository: Repository<UserKeyword>
   ) {}
 
   public getUserKeywords = async (userId: string) =>
@@ -26,11 +26,14 @@ export class KeywordsService {
     userId: string,
     topicIds: string[]
   ) => {
-    const topicKeywords = await this.topicKeywordRepository.find({
-      where: { topicId: In(topicIds) },
+    const topics = await this.topicRepository.find({
+      where: { id: In(topicIds) },
+      relations: { keywords: true },
     });
 
-    const keywordIds = uniq(topicKeywords.map(({ keywordId }) => keywordId));
+    const keywordIds = uniq(
+      topics.flatMap(({ keywords }) => keywords.map(({ id }) => id))
+    );
 
     if (keywordIds.length > 0) {
       await this.userKeywordRepository

@@ -48,7 +48,7 @@ registerSeed("Topics & Keywords", async (queryRunner: QueryRunner) => {
   await Promise.all(
     linksToInsert.map(([topicId, keywordId]) =>
       queryRunner.query(
-        "INSERT INTO topic_keywords (topic_id, keyword_id, created_at) VALUES ($1, $2, NOW())",
+        "INSERT INTO topic_keywords (topic_id, keyword_id) VALUES ($1, $2)",
         [topicId, keywordId]
       )
     )

@@ -14,15 +14,8 @@ export class TopicsService {
     this.topicRepository.find({ order: { name: "ASC" } });
 
   public getTopicsWithKeywords = () =>
-    this.topicRepository
-      .createQueryBuilder("topic")
-      .leftJoinAndSelect("topic_keywords", "topic_keyword")
-      .leftJoinAndMapMany(
-        "topic.keywords",
-        "keywords",
-        "keyword",
-        "keyword.id = topic_keyword.keyword_id"
-      )
-      .orderBy("topic.name", "ASC")
-      .getMany();
+    this.topicRepository.find({
+      relations: { keywords: true },
+      order: { name: "ASC" },
+    });
 }

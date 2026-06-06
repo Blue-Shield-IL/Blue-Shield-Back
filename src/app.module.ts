@@ -13,7 +13,6 @@ import { JwtStrategy } from "@Middleware/passport/jwt.strategy";
 import { KeywordsModule } from "@Modules/keywords/keywords.module";
 import { DatabaseModule } from "@Providers/database/database.provider";
 import { UserKeywordsModule } from "@Modules/userKeywords/user-keywords.module";
-import { TopicKeywordsModule } from "@Modules/topicKeywords/topicKeywords.module";
 
 @Module({
   imports: [
@@ -33,7 +32,6 @@ import { TopicKeywordsModule } from "@Modules/topicKeywords/topicKeywords.module
     AuthModule,
     TopicsModule,
     KeywordsModule,
-    TopicKeywordsModule,
     UserKeywordsModule,
   ],
   controllers: [AppController],
