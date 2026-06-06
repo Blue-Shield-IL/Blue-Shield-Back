@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0",
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021",
+    "sourceMap": true,
+    "baseUrl": "./",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node", "jest"],
+    "paths": {
+      "@Constants/*": ["src/constants/*"],
+      "@Decorators/*": ["src/decorators/*"],
+      "@Exceptions/*": ["src/exceptions/*"],
+      "@Filters/*": ["src/filters/*"],
+      "@Guards/*": ["src/guards/*"],
+      "@Middleware/*": ["src/middleware/*"],
+      "@Modules/*": ["src/modules/*"],
+      "@Providers/*": ["src/providers/*"],
+      "@Utilities/*": ["src/utilities/*"],
+      "@Interfaces/*": ["src/interfaces/*"],
+      "@Types/*": ["src/types/*"],
+      "@Pipes/*": ["src/pipes/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

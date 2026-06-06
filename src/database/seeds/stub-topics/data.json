@@ -1,0 +1,93 @@
+[
+  {
+    "name": "Antisemitism Monitoring",
+    "icon": "🛡️",
+    "keywords": [
+      "antisemitism",
+      "hate speech",
+      "holocaust denial",
+      "BDS",
+      "anti-zionism",
+      "blood libel",
+      "conspiracy theories"
+    ]
+  },
+  {
+    "name": "Public Diplomacy",
+    "icon": "🌐",
+    "keywords": [
+      "hasbara",
+      "israel advocacy",
+      "public opinion",
+      "media bias",
+      "narrative",
+      "soft power"
+    ]
+  },
+  {
+    "name": "Social Media Analysis",
+    "icon": "📱",
+    "keywords": [
+      "twitter",
+      "tiktok",
+      "instagram",
+      "viral content",
+      "influencers",
+      "bot networks",
+      "trending"
+    ]
+  },
+  {
+    "name": "News & Media Coverage",
+    "icon": "📰",
+    "keywords": [
+      "mainstream media",
+      "press coverage",
+      "editorial bias",
+      "fact checking",
+      "misinformation",
+      "breaking news"
+    ]
+  },
+  {
+    "name": "Academic Discourse",
+    "icon": "🎓",
+    "keywords": [
+      "university",
+      "campus",
+      "academic boycott",
+      "research",
+      "professors",
+      "student activism"
+    ]
+  },
+  {
+    "name": "Government & Policy",
+    "icon": "🏛️",
+    "keywords": [
+      "legislation",
+      "sanctions",
+      "foreign policy",
+      "UN resolutions",
+      "diplomacy",
+      "bilateral relations"
+    ]
+  },
+  {
+    "name": "International Organizations",
+    "icon": "🤝",
+    "keywords": ["UN", "UNESCO", "UNHRC", "ICC", "EU", "NGO"]
+  },
+  {
+    "name": "Community Responses",
+    "icon": "💬",
+    "keywords": [
+      "diaspora",
+      "community organizing",
+      "counter-narrative",
+      "education",
+      "solidarity",
+      "interfaith"
+    ]
+  }
+]
