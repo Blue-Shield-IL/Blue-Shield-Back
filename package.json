@@ -15,7 +15,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "seed": "ts-node -r tsconfig-paths/register src/database/seeds/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/database/seeds/runner.ts"
   },
   "repository": {
     "type": "git",
@@ -53,6 +53,7 @@
     "uuid": "^14.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.21",
     "@nestjs/schematics": "^11.1.0",
     "@nestjs/testing": "^11.1.23",
@@ -72,9 +73,11 @@
     "eslint-plugin-prettier": "^5.5.5",
     "jest": "^30.4.2",
     "prettier": "^3.8.3",
+    "prettier-plugin-sort-imports": "^1.8.11",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.1"
   }
 }
