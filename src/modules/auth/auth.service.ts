@@ -161,7 +161,7 @@ export class AuthService {
     const { accessToken, refreshToken: newRefreshToken } =
       await this.generateTokens(storedToken.user, true);
 
-    return { accessToken, refreshToken: newRefreshToken };
+    return { accessToken, refreshToken: newRefreshToken, user: storedToken.user };
   };
 
   public logout = async (
