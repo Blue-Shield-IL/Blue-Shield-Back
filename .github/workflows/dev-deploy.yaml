@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - fix-docker
 
 permissions:
   contents: read
