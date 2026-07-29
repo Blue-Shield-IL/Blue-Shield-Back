@@ -12,6 +12,7 @@ import { CustomThrottlerGuard } from "@Guards/throttler.guard";
 import { JwtStrategy } from "@Middleware/passport/jwt.strategy";
 import { KeywordsModule } from "@Modules/keywords/keywords.module";
 import { DatabaseModule } from "@Providers/database/database.provider";
+import { DashboardModule } from "@Modules/dashboard/dashboard.module";
 import { UserKeywordsModule } from "@Modules/userKeywords/user-keywords.module";
 
 @Module({
@@ -33,6 +34,7 @@ import { UserKeywordsModule } from "@Modules/userKeywords/user-keywords.module";
     TopicsModule,
     KeywordsModule,
     UserKeywordsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

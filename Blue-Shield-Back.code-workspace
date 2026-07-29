@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../Blue-Shield-Client"
+		},
+		{
+			"path": "../blue-shield-mockup"
+		},
+		{
+			"path": "../Blue-Shield-Pipeline"
+		}
+	],
+	"settings": {
+	}
+}
