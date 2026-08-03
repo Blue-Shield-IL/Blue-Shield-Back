@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsDateString, IsIn, IsNumber, IsOptional, Min } from "class-validator";
+import { IsDateString, IsIn, IsNumber, IsOptional, IsString, Min } from "class-validator";
 
 export class DashboardQueryDto {
   @IsOptional()
@@ -19,4 +19,8 @@ export class DashboardQueryDto {
   @IsNumber()
   @Min(1)
   limit?: number;
+
+  @IsOptional()
+  @IsString()
+  keywords?: string;
 }

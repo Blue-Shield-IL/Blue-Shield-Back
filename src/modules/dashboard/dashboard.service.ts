@@ -12,6 +12,8 @@ import {
   ActivityTrendItem,
   TopSourceItem,
   MostViewedItem,
+  IhraCategoryItem,
+  TopicBreakdownItem,
 } from "./interfaces/dashboard.interfaces";
 import { resolveLanguage } from "./language.util";
 
@@ -20,6 +22,11 @@ export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
   constructor(private readonly elasticsearchService: ElasticsearchService) {}
+
+  private keywordFilter(keywords?: string[]): any[] {
+    if (!keywords || keywords.length === 0) return [];
+    return [{ terms: { "keywords.keyword": keywords } }];
+  }
 
   async ping(): Promise<boolean> {
     try {
@@ -58,7 +65,8 @@ export class DashboardService {
   async getThreatTrend(
     startDate?: string,
     endDate?: string,
-    interval?: "day" | "week" | "month"
+    interval?: "day" | "week" | "month",
+    keywords?: string[],
   ): Promise<ThreatTrendItem[]> {
     try {
       const now = new Date();
@@ -74,15 +82,9 @@ export class DashboardService {
           bool: {
             must: [
               { exists: { field: "antisemitism_score" } },
-              {
-                range: {
-                  created_at: {
-                    gte: from,
-                    lte: to,
-                  },
-                },
-              },
+              { range: { created_at: { gte: from, lte: to } } },
             ],
+            filter: [...this.keywordFilter(keywords)],
           },
         },
         aggs: {
@@ -116,7 +118,8 @@ export class DashboardService {
 
   async getSentimentDistribution(
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    keywords?: string[],
   ): Promise<SentimentDistributionItem[]> {
     try {
       const now = new Date();
@@ -134,21 +137,15 @@ export class DashboardService {
         query: {
           bool: {
             filter: [
-              {
-                range: {
-                  created_at: {
-                    gte: start,
-                    lte: end,
-                  },
-                },
-              },
+              { range: { created_at: { gte: start, lte: end } } },
+              ...this.keywordFilter(keywords),
             ],
           },
         },
         aggs: {
           sentiment_distribution: {
             terms: {
-              field: "sentiment",
+              field: "sentiment.keyword",
               size: 10,
             },
           },
@@ -178,7 +175,8 @@ export class DashboardService {
   async getTopKeywords(
     startDate?: string,
     endDate?: string,
-    limit?: number
+    limit?: number,
+    keywords?: string[],
   ): Promise<TopKeywordItem[]> {
     try {
       const now = new Date();
@@ -197,28 +195,16 @@ export class DashboardService {
         query: {
           bool: {
             must: [
-              {
-                range: {
-                  created_at: {
-                    gte: from,
-                    lte: to,
-                  },
-                },
-              },
-              {
-                range: {
-                  antisemitism_score: {
-                    gt: 0.5,
-                  },
-                },
-              },
+              { range: { created_at: { gte: from, lte: to } } },
+              { range: { antisemitism_score: { gt: 0.5 } } },
             ],
+            filter: [...this.keywordFilter(keywords)],
           },
         },
         aggs: {
           top_keywords: {
             terms: {
-              field: "keywords",
+              field: "keywords.keyword",
               size: size,
             },
           },
@@ -240,7 +226,8 @@ export class DashboardService {
 
   async getGeographicDistribution(
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    keywords?: string[],
   ): Promise<GeographicDistributionItem[]> {
     try {
       const now = new Date();
@@ -258,33 +245,17 @@ export class DashboardService {
         query: {
           bool: {
             must: [
-              {
-                range: {
-                  created_at: {
-                    gte: from,
-                    lte: to,
-                  },
-                },
-              },
-              {
-                range: {
-                  antisemitism_score: {
-                    gt: 0.5,
-                  },
-                },
-              },
-              {
-                exists: {
-                  field: "country_of_origin",
-                },
-              },
+              { range: { created_at: { gte: from, lte: to } } },
+              { range: { antisemitism_score: { gt: 0.5 } } },
+              { exists: { field: "country_of_origin" } },
             ],
+            filter: [...this.keywordFilter(keywords)],
           },
         },
         aggs: {
           countries: {
             terms: {
-              field: "country_of_origin",
+              field: "country_of_origin.keyword",
               size: 50,
             },
           },
@@ -345,11 +316,12 @@ export class DashboardService {
       .join(" ");
   }
 
-  async getStats(startDate?: string, endDate?: string): Promise<DashboardStats> {
+  async getStats(startDate?: string, endDate?: string, keywords?: string[]): Promise<DashboardStats> {
     try {
       const now = new Date();
       const from = startDate || new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
       const to = endDate || now.toISOString();
+      const kwFilter = this.keywordFilter(keywords);
       // Compute previous period of same duration for comparison
       const fromMs = new Date(from).getTime();
       const toMs = new Date(to).getTime();
@@ -357,24 +329,25 @@ export class DashboardService {
       const prevFrom = new Date(fromMs - duration).toISOString();
       const prevTo = from;
 
+      const mkQuery = (rangeFilter: any) => {
+        const q: any = { bool: { must: [rangeFilter], filter: [...kwFilter] } };
+        return q;
+      };
+
       // Total posts count
       const totalResult = await this.elasticsearchService.count({
         index: "posts",
-        query: { range: { created_at: { gte: from, lte: to } } },
+        query: mkQuery({ range: { created_at: { gte: from, lte: to } } }),
       });
       const totalPosts = totalResult.count;
 
       // New posts in selected period
-      const newPostsResult = await this.elasticsearchService.count({
-        index: "posts",
-        query: { range: { created_at: { gte: from, lte: to } } },
-      });
-      const newPosts = newPostsResult.count;
+      const newPosts = totalPosts;
 
       // Posts from previous period (for comparison)
       const prevPostsResult = await this.elasticsearchService.count({
         index: "posts",
-        query: { range: { created_at: { gte: prevFrom, lt: prevTo } } },
+        query: mkQuery({ range: { created_at: { gte: prevFrom, lt: prevTo } } }),
       });
       const prevPosts = prevPostsResult.count;
       const newPostsChange = prevPosts > 0 ? Math.round(((newPosts - prevPosts) / prevPosts) * 100) : 0;
@@ -388,6 +361,7 @@ export class DashboardService {
               { range: { created_at: { gte: from, lte: to } } },
               { range: { antisemitism_score: { gt: 0.5 } } },
             ],
+            filter: [...kwFilter],
           },
         },
       });
@@ -402,6 +376,7 @@ export class DashboardService {
               { range: { created_at: { gte: prevFrom, lt: prevTo } } },
               { range: { antisemitism_score: { gt: 0.5 } } },
             ],
+            filter: [...kwFilter],
           },
         },
       });
@@ -411,43 +386,38 @@ export class DashboardService {
       // Reach (views) + active sources via aggregations
       let totalViews = 0;
       let activeSources = 0;
+      let avgThreatScore = 0;
       try {
         const aggResult = await this.elasticsearchService.search({
           index: "posts",
           size: 0,
-          query: { range: { created_at: { gte: from, lte: to } } },
+          query: mkQuery({ range: { created_at: { gte: from, lte: to } } }),
           aggs: {
             total_views: { sum: { field: "views" } },
-            active_channels: { cardinality: { field: "channel" } },
-            active_channels_kw: { cardinality: { field: "channel.keyword" } },
-            active_authors: { cardinality: { field: "author" } },
-            active_authors_kw: { cardinality: { field: "author.keyword" } },
+            active_sources: { cardinality: { field: "channel.username.keyword" } },
+            avg_threat: { avg: { field: "antisemitism_score" } },
           },
         });
         const aggs = aggResult.aggregations as any;
         totalViews = Math.round(aggs?.total_views?.value || 0);
-        activeSources = Math.round(
-          aggs?.active_channels?.value ||
-          aggs?.active_channels_kw?.value ||
-          aggs?.active_authors?.value ||
-          aggs?.active_authors_kw?.value ||
-          0
-        );
-      } catch (aggErr) {
-        // If multi-agg fails, try simpler query
+        activeSources = Math.round(aggs?.active_sources?.value || 0);
+        avgThreatScore = aggs?.avg_threat?.value ?? 0;
+      } catch {
         try {
           const simpleAgg = await this.elasticsearchService.search({
             index: "posts",
             size: 0,
-            query: { range: { created_at: { gte: from, lte: to } } },
+            query: mkQuery({ range: { created_at: { gte: from, lte: to } } }),
             aggs: {
               total_views: { sum: { field: "views" } },
-              active_sources: { cardinality: { field: "author.keyword" } },
+              active_sources: { cardinality: { field: "author.username.keyword" } },
+              avg_threat: { avg: { field: "antisemitism_score" } },
             },
           });
           const sa = simpleAgg.aggregations as any;
           totalViews = Math.round(sa?.total_views?.value || 0);
           activeSources = Math.round(sa?.active_sources?.value || 0);
+          avgThreatScore = sa?.avg_threat?.value ?? 0;
         } catch {
           this.logger.warn("Could not compute active sources aggregation");
         }
@@ -458,13 +428,13 @@ export class DashboardService {
       const viewsCurRes = await this.elasticsearchService.search({
         index: "posts",
         size: 0,
-        query: { range: { created_at: { gte: from, lte: to } } },
+        query: mkQuery({ range: { created_at: { gte: from, lte: to } } }),
         aggs: { v: { sum: { field: "views" } } },
       });
       const viewsPrevRes = await this.elasticsearchService.search({
         index: "posts",
         size: 0,
-        query: { range: { created_at: { gte: prevFrom, lt: prevTo } } },
+        query: mkQuery({ range: { created_at: { gte: prevFrom, lt: prevTo } } }),
         aggs: { v: { sum: { field: "views" } } },
       });
       const viewsCur = (viewsCurRes.aggregations as any)?.v?.value || 0;
@@ -482,6 +452,7 @@ export class DashboardService {
         totalViewsChange,
         activeSources,
         avgViewsPerPost,
+        avgThreatScore: Math.round(avgThreatScore * 100) / 100,
       };
     } catch (error) {
       this.logger.error("Failed to fetch dashboard stats", error instanceof Error ? error.stack : error);
@@ -492,7 +463,8 @@ export class DashboardService {
   async getActivityTrend(
     startDate?: string,
     endDate?: string,
-    interval?: "day" | "week" | "month"
+    interval?: "day" | "week" | "month",
+    keywords?: string[],
   ): Promise<ActivityTrendItem[]> {
     try {
       const now = new Date();
@@ -504,7 +476,7 @@ export class DashboardService {
       const result = await this.elasticsearchService.search({
         index: "posts",
         size: 0,
-        query: { range: { created_at: { gte: from, lte: to } } },
+        query: { bool: { must: [{ range: { created_at: { gte: from, lte: to } } }], filter: [...this.keywordFilter(keywords)] } },
         aggs: {
           trend: {
             date_histogram: {
@@ -535,14 +507,14 @@ export class DashboardService {
     }
   }
 
-  async getTopSources(startDate?: string, endDate?: string, limit?: number): Promise<TopSourceItem[]> {
+  async getTopSources(startDate?: string, endDate?: string, limit?: number, keywords?: string[]): Promise<TopSourceItem[]> {
     try {
       const size = limit || 5;
       const now = new Date();
       const from = startDate || new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
       const to = endDate || now.toISOString();
+      const kwF = this.keywordFilter(keywords);
 
-      // Try channel field first, then channel.keyword, then author.keyword fallback
       const tryAgg = async (field: string, withFilter: boolean): Promise<any[]> => {
         try {
           const must: any[] = [
@@ -554,7 +526,7 @@ export class DashboardService {
           const body: any = {
             index: "posts",
             size: 0,
-            query: { bool: { must } },
+            query: { bool: { must, filter: [...kwF] } },
             aggs: {
               sources: {
                 terms: { field, size, order: { views: "desc" } },
@@ -570,10 +542,8 @@ export class DashboardService {
         }
       };
 
-      let buckets = await tryAgg("channel", true);
-      if (!buckets.length) buckets = await tryAgg("channel.keyword", true);
-      if (!buckets.length) buckets = await tryAgg("author.keyword", false);
-      if (!buckets.length) buckets = await tryAgg("author", false);
+      let buckets = await tryAgg("channel.username.keyword", true);
+      if (!buckets.length) buckets = await tryAgg("author.username.keyword", false);
 
       return buckets.map((b: any, i: number) => {
         const raw = b.key;
@@ -594,7 +564,7 @@ export class DashboardService {
     }
   }
 
-  async getMostViewed(startDate?: string, endDate?: string, limit?: number): Promise<MostViewedItem[]> {
+  async getMostViewed(startDate?: string, endDate?: string, limit?: number, keywords?: string[]): Promise<MostViewedItem[]> {
     try {
       const size = limit || 5;
       const now = new Date();
@@ -604,7 +574,7 @@ export class DashboardService {
       const result = await this.elasticsearchService.search({
         index: "posts",
         size,
-        query: { range: { created_at: { gte: from, lte: to } } },
+        query: { bool: { must: [{ range: { created_at: { gte: from, lte: to } } }], filter: [...this.keywordFilter(keywords)] } },
         sort: [{ views: { order: "desc" } }],
         _source: [
           "post_id",
@@ -704,10 +674,10 @@ export class DashboardService {
         },
         aggs: {
           top_authors: {
-            terms: { field: "author", size },
+            terms: { field: "author.keyword", size },
           },
           total: {
-            value_count: { field: "author" },
+            value_count: { field: "author.keyword" },
           },
         },
       });
@@ -800,34 +770,34 @@ export class DashboardService {
         });
       }
 
-      // Keywords (keyword array) - must contain all
+      // Keywords — match posts containing ANY of the specified keywords
       const keywords = splitCsv(params.keywords);
-      for (const kw of keywords) {
-        filter.push({ term: { keywords: kw } });
+      if (keywords.length > 0) {
+        filter.push({ terms: { "keywords.keyword": keywords } });
       }
 
       // Hashtags (keyword array)
       const hashtags = splitCsv(params.hashtags);
       for (const ht of hashtags) {
-        filter.push({ term: { hashtags: ht } });
+        filter.push({ term: { "hashtags.keyword": ht } });
       }
 
       // Platform / source
       const platforms = splitCsv(params.platform);
       if (platforms.length) {
-        filter.push({ terms: { platform: platforms } });
+        filter.push({ terms: { "platform.keyword": platforms } });
       }
 
       // Country
       const countries = splitCsv(params.country);
       if (countries.length) {
-        filter.push({ terms: { country_of_origin: countries } });
+        filter.push({ terms: { "country_of_origin.keyword": countries } });
       }
 
       // Sentiment
       const sentiments = splitCsv(params.sentiment);
       if (sentiments.length) {
-        filter.push({ terms: { sentiment: sentiments } });
+        filter.push({ terms: { "sentiment.keyword": sentiments } });
       }
 
       // Score range
@@ -963,6 +933,160 @@ export class DashboardService {
         "Failed to search posts",
         error instanceof Error ? error.stack : error
       );
+      throw new ServiceUnavailableException("Elasticsearch service is unavailable");
+    }
+  }
+
+  async getIhraBreakdown(
+    startDate?: string,
+    endDate?: string,
+    keywords?: string[],
+  ): Promise<IhraCategoryItem[]> {
+    try {
+      const now = new Date();
+      const from = startDate || new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
+      const to = endDate || now.toISOString();
+
+      const result = await this.elasticsearchService.search({
+        index: "posts",
+        size: 0,
+        query: {
+          bool: {
+            filter: [
+              { range: { created_at: { gte: from, lte: to } } },
+              ...this.keywordFilter(keywords),
+            ],
+          },
+        },
+        aggs: {
+          ihra: {
+            terms: {
+              field: "ihra_labels.keyword",
+              size: 20,
+            },
+          },
+        },
+      });
+
+      const buckets = (result.aggregations as any)?.ihra?.buckets || [];
+      return buckets.map((b: any) => ({
+        label: b.key,
+        count: b.doc_count,
+      }));
+    } catch (error) {
+      this.logger.error("Failed to fetch IHRA breakdown", error instanceof Error ? error.stack : error);
+      throw new ServiceUnavailableException("Elasticsearch service is unavailable");
+    }
+  }
+
+  private static readonly TOPIC_KEYWORD_MAP: Record<string, string[]> = {
+    "Conspiracy Theories": [
+      "globalist conspiracy",
+      "George Soros conspiracy",
+      "Rothschild conspiracy",
+      "New World Order Jewish conspiracy",
+      "Jewish world domination conspiracy",
+      "great replacement theory",
+    ],
+    "Classic Antisemitic Tropes": [
+      "blood libel",
+      "Jewish control of media",
+      "Jewish control of banks or financial system",
+      "Protocols of the Elders of Zion",
+    ],
+    "Holocaust & Historical Violence": [
+      "Holocaust denial or distortion",
+      "pogrom or mob violence against Jews",
+    ],
+    "Israel-Related Antisemitism": [
+      "Israel genocide accusation",
+      "Zionist occupation",
+      "Israeli apartheid",
+    ],
+    "Conflict & Escalation": ["October 7th Hamas attack"],
+  };
+
+  async getTopicBreakdown(
+    startDate?: string,
+    endDate?: string,
+  ): Promise<TopicBreakdownItem[]> {
+    try {
+      const now = new Date();
+      const from = startDate || new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
+      const to = endDate || now.toISOString();
+
+      const topics: TopicBreakdownItem[] = [];
+
+      for (const [topic, keywords] of Object.entries(DashboardService.TOPIC_KEYWORD_MAP)) {
+        const result = await this.elasticsearchService.search({
+          index: "posts",
+          size: 0,
+          query: {
+            bool: {
+              filter: [
+                { range: { created_at: { gte: from, lte: to } } },
+                { terms: { "keywords.keyword": keywords } },
+              ],
+            },
+          },
+          aggs: {
+            total_views: { sum: { field: "views" } },
+          },
+        });
+
+        const total = (result as any).hits?.total;
+        const postCount = typeof total === "number" ? total : total?.value || 0;
+        const totalViews = Math.round(
+          (result.aggregations as any)?.total_views?.value || 0,
+        );
+
+        topics.push({ topic, totalViews, postCount, keywords });
+      }
+
+      return topics.sort((a, b) => b.totalViews - a.totalViews);
+    } catch (error) {
+      this.logger.error("Failed to fetch topic breakdown", error instanceof Error ? error.stack : error);
+      throw new ServiceUnavailableException("Elasticsearch service is unavailable");
+    }
+  }
+
+  async getCountries(): Promise<{ country: string; count: number }[]> {
+    try {
+      const result = await this.elasticsearchService.search({
+        index: "posts",
+        size: 0,
+        query: { exists: { field: "country_of_origin" } },
+        aggs: {
+          countries: { terms: { field: "country_of_origin.keyword", size: 100 } },
+        },
+      });
+      const buckets = (result.aggregations as any)?.countries?.buckets || [];
+      return buckets.map((b: any) => ({
+        country: this.normalizeCountry(b.key),
+        count: b.doc_count,
+      }));
+    } catch (error) {
+      this.logger.error("Failed to fetch countries", error instanceof Error ? error.stack : error);
+      throw new ServiceUnavailableException("Elasticsearch service is unavailable");
+    }
+  }
+
+  async getSources(): Promise<{ name: string; count: number }[]> {
+    try {
+      const result = await this.elasticsearchService.search({
+        index: "posts",
+        size: 0,
+        aggs: {
+          sources: { terms: { field: "author.username.keyword", size: 100 } },
+        },
+      });
+      const buckets = (result.aggregations as any)?.sources?.buckets || [];
+      return buckets.map((b: any) => ({
+        name: b.key,
+        count: b.doc_count,
+      }));
+    } catch (error) {
+      this.logger.error("Failed to fetch sources", error instanceof Error ? error.stack : error);
       throw new ServiceUnavailableException("Elasticsearch service is unavailable");
     }
   }

@@ -29,6 +29,19 @@ export interface DashboardStats {
   totalViewsChange: number;
   activeSources: number;
   avgViewsPerPost: number;
+  avgThreatScore: number;
+}
+
+export interface IhraCategoryItem {
+  label: string;
+  count: number;
+}
+
+export interface TopicBreakdownItem {
+  topic: string;
+  totalViews: number;
+  postCount: number;
+  keywords: string[];
 }
 
 export interface ActivityTrendItem {
