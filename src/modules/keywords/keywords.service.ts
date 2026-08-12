@@ -35,6 +35,8 @@ export class KeywordsService {
       topics.flatMap(({ keywords }) => keywords.map(({ id }) => id))
     );
 
+    await this.userKeywordRepository.delete({ userId });
+
     if (keywordIds.length > 0) {
       await this.userKeywordRepository
         .createQueryBuilder()
