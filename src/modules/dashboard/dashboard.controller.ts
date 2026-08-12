@@ -2,6 +2,7 @@ import { Controller, Get, Query } from "@nestjs/common";
 import { DashboardService } from "./dashboard.service";
 import { DashboardQueryDto } from "./dto/dashboard-query.dto";
 import { PostSearchDto } from "./dto/post-search.dto";
+import { Public } from "@Decorators/public.decorator";
 
 @Controller("dashboard")
 export class DashboardController {
@@ -98,5 +99,18 @@ export class DashboardController {
     @Query("source") source?: string
   ) {
     return this.dashboardService.translateToEnglish(text, source);
+  }
+
+  @Get("semantic-search")
+  async semanticSearch(
+    @Query("query") query: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
+  ) {
+    return this.dashboardService.semanticSearch(
+      query,
+      page ? parseInt(page, 10) : 1,
+      pageSize ? parseInt(pageSize, 10) : 20
+    );
   }
 }

@@ -52,5 +52,11 @@ export class UsersService {
     return this.findById(userId);
   };
 
+  public updateProfilePic = async (userId: string, url: string) => {
+    await this.usersRepository.update(userId, { profilePicUrl: url });
+
+    return this.findById(userId);
+  };
+
   public deleteUser = (userId: string) => this.usersRepository.delete(userId);
 }

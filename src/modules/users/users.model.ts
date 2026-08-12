@@ -34,6 +34,9 @@ export class User {
   @Column({ default: false })
   isOnboarded!: boolean;
 
+  @Column({ type: "varchar", nullable: true, default: null })
+  profilePicUrl!: string | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

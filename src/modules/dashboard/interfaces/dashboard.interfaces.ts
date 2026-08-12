@@ -70,6 +70,7 @@ export interface MostViewedItem {
   country: string | null;
   channel: string | null;
   language: string | null;
+  sentiment: string | null;
   antisemitismScore: number | null;
   keywords: string[];
   hashtags: string[];
@@ -79,6 +80,7 @@ export interface MostViewedItem {
   shares: number;
   commentsCount: number;
   url: string | null;
+  popularity: number;
 }
 
 export interface TopAuthorItem {
@@ -115,4 +117,8 @@ export interface PostSearchResult {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+export interface SemanticSearchItem extends PostItem {
+  similarityScore: number;
 }

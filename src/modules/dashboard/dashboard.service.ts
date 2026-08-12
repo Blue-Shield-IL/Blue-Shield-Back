@@ -1,4 +1,4 @@
-import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
+import { Injectable, Logger, ServiceUnavailableException, BadRequestException } from "@nestjs/common";
 import { ElasticsearchService } from "@nestjs/elasticsearch";
 import {
   GeographicDistributionItem,
@@ -14,6 +14,7 @@ import {
   MostViewedItem,
   IhraCategoryItem,
   TopicBreakdownItem,
+  SemanticSearchItem,
 } from "./interfaces/dashboard.interfaces";
 import { resolveLanguage } from "./language.util";
 
@@ -575,7 +576,17 @@ export class DashboardService {
         index: "posts",
         size,
         query: { bool: { must: [{ range: { created_at: { gte: from, lte: to } } }], filter: [...this.keywordFilter(keywords)] } },
-        sort: [{ views: { order: "desc" } }],
+        sort: [
+          {
+            _script: {
+              type: "number",
+              script: {
+                source: "(doc.containsKey('views') && doc['views'].size() > 0 ? doc['views'].value : 0) * 0.5 + (doc.containsKey('likes') && doc['likes'].size() > 0 ? doc['likes'].value : 0) * 0.3 + (doc.containsKey('shares') && doc['shares'].size() > 0 ? doc['shares'].value : 0) * 0.2",
+              },
+              order: "desc",
+            },
+          },
+        ],
         _source: [
           "post_id",
           "author",
@@ -629,6 +640,7 @@ export class DashboardService {
           country: s.country_of_origin ? String(s.country_of_origin) : null,
           channel,
           language: s.language ? String(s.language) : null,
+          sentiment: s.sentiment ? String(s.sentiment) : null,
           antisemitismScore: s.antisemitism_score != null ? Number(s.antisemitism_score) : null,
           keywords: Array.isArray(s.keywords) ? s.keywords.map(String) : [],
           hashtags: Array.isArray(s.hashtags) ? s.hashtags.map(String) : [],
@@ -638,6 +650,11 @@ export class DashboardService {
           shares: Number(s.shares) || 0,
           commentsCount: Number(s.comments_count) || 0,
           url: s.url ? String(s.url) : null,
+          popularity: Math.round(
+            (Number(s.views) || 0) * 0.5 +
+            (Number(s.likes) || 0) * 0.3 +
+            (Number(s.shares) || 0) * 0.2
+          ),
         };
       });
     } catch (error) {
@@ -674,10 +691,10 @@ export class DashboardService {
         },
         aggs: {
           top_authors: {
-            terms: { field: "author.keyword", size },
+            terms: { field: "author.username.keyword", size },
           },
           total: {
-            value_count: { field: "author.keyword" },
+            value_count: { field: "author.username.keyword" },
           },
         },
       });
@@ -728,7 +745,7 @@ export class DashboardService {
         must.push({
           multi_match: {
             query: params.search,
-            fields: ["text_content", "author", "channel"],
+            fields: ["text_content", "author.name", "author.username", "channel.name", "channel.username"],
             type: "best_fields",
             fuzziness: "AUTO",
           },
@@ -744,27 +761,16 @@ export class DashboardService {
               .filter(Boolean)
           : [];
 
-      // Author - flexible match (supports partial/case-insensitive)
+      // Author / source filter — exact match on object subfields
       const authors = splitCsv(params.author);
-      if (authors.length === 1) {
-        must.push({
-          multi_match: {
-            query: authors[0],
-            fields: ["author", "author.keyword", "channel"],
-            type: "best_fields",
-            fuzziness: "AUTO",
-          },
-        });
-      } else if (authors.length > 1) {
-        must.push({
+      if (authors.length > 0) {
+        filter.push({
           bool: {
-            should: authors.map((a) => ({
-              multi_match: {
-                query: a,
-                fields: ["author", "author.keyword", "channel"],
-                type: "best_fields",
-              },
-            })),
+            should: [
+              { terms: { "channel.username.keyword": authors } },
+              { terms: { "author.username.keyword": authors } },
+              { terms: { "author.name.keyword": authors } },
+            ],
             minimum_should_match: 1,
           },
         });
@@ -816,17 +822,27 @@ export class DashboardService {
         filter.push({ range: { created_at: dateRange } });
       }
 
-      const query =
+      // Language filter
+      const languages = splitCsv(params.language);
+      if (languages.length) {
+        filter.push({ terms: { "language.keyword": languages } });
+      }
+
+      const finalQuery =
         must.length || filter.length
           ? { bool: { ...(must.length ? { must } : {}), ...(filter.length ? { filter } : {}) } }
           : { match_all: {} };
 
-      const sortField = params.sortBy || "created_at";
+      const sortFieldMap: Record<string, string> = {
+        author: "author.username.keyword",
+        sentiment: "sentiment.keyword",
+        country: "country_of_origin.keyword",
+      };
+      const rawSort = params.sortBy || "created_at";
+      const sortField = sortFieldMap[rawSort] || rawSort;
       const sortOrder = params.sortOrder || "desc";
 
-      const languageFilter = (params.language || "").trim().toLowerCase();
-
-      // Local hit -> PostItem mapper (resolves/detects language)
+      // Local hit -> PostItem mapper
       const mapHit = (hit: any): PostItem => {
         const s = hit._source || {};
         const toStr = (v: any): string => {
@@ -844,7 +860,6 @@ export class DashboardService {
         };
         const rawCountry = toStr(s.country_of_origin);
         const textContent = toStr(s.text_content);
-        const detected = resolveLanguage(s.language, textContent);
         return {
           postId: toStr(s.post_id) || hit._id,
           author: toStr(s.author) || "Unknown",
@@ -860,7 +875,7 @@ export class DashboardService {
           ihraLabels: toArr(s.ihra_labels),
           mentions: toArr(s.mentions),
           url: s.url ? toStr(s.url) : null,
-          language: detected.code === "und" ? null : detected.code,
+          language: s.language ? String(s.language) : null,
           channel: s.channel ? toStr(s.channel) : null,
           likes: toNum(s.likes),
           shares: toNum(s.shares),
@@ -869,46 +884,31 @@ export class DashboardService {
         };
       };
 
-      // When filtering by language we must detect in-memory (stored language is
-      // unreliable), so fetch a candidate window, detect, filter, then paginate.
-      if (languageFilter) {
-        const CANDIDATE_CAP = 1000;
-        const result = await this.elasticsearchService.search({
-          index: "posts",
-          from: 0,
-          size: CANDIDATE_CAP,
-          track_total_hits: true,
-          query,
-          sort: [{ [sortField]: { order: sortOrder } }],
-          _source: { excludes: ["text_vector"] },
-        });
-
-        const hits = (result as any).hits?.hits || [];
-        const allItems = hits.map(mapHit);
-        const filtered = allItems.filter(
-          (item: PostItem) => item.language === languageFilter
-        );
-
-        const total = filtered.length;
-        const start = (page - 1) * pageSize;
-        const items = filtered.slice(start, start + pageSize);
-
-        return {
-          items,
-          total,
-          page,
-          pageSize,
-          totalPages: Math.ceil(total / pageSize),
-        };
-      }
+      const keywordFields = new Set([
+        "author.username.keyword",
+        "sentiment.keyword",
+        "country_of_origin.keyword",
+        "channel.username.keyword",
+      ]);
+      const sortClause = keywordFields.has(sortField)
+        ? {
+            _script: {
+              type: "string" as const,
+              order: sortOrder,
+              script: {
+                source: `doc['${sortField}'].size() > 0 ? doc['${sortField}'].value.toLowerCase() : ''`,
+              },
+            },
+          }
+        : { [sortField]: { order: sortOrder } };
 
       const result = await this.elasticsearchService.search({
         index: "posts",
         from,
         size: pageSize,
         track_total_hits: true,
-        query,
-        sort: [{ [sortField]: { order: sortOrder } }],
+        query: finalQuery,
+        sort: [sortClause],
         _source: {
           excludes: ["text_vector"],
         },
@@ -1072,19 +1072,30 @@ export class DashboardService {
   }
 
   async getSources(): Promise<{ name: string; count: number }[]> {
+    const tryField = async (field: string): Promise<{ name: string; count: number }[]> => {
+      try {
+        const result = await this.elasticsearchService.search({
+          index: "posts",
+          size: 0,
+          aggs: {
+            sources: { terms: { field, size: 100 } },
+          },
+        });
+        const buckets = (result.aggregations as any)?.sources?.buckets || [];
+        return buckets.map((b: any) => ({
+          name: b.key,
+          count: b.doc_count,
+        }));
+      } catch {
+        return [];
+      }
+    };
+
     try {
-      const result = await this.elasticsearchService.search({
-        index: "posts",
-        size: 0,
-        aggs: {
-          sources: { terms: { field: "author.username.keyword", size: 100 } },
-        },
-      });
-      const buckets = (result.aggregations as any)?.sources?.buckets || [];
-      return buckets.map((b: any) => ({
-        name: b.key,
-        count: b.doc_count,
-      }));
+      let sources = await tryField("channel.username.keyword");
+      if (!sources.length) sources = await tryField("author.username.keyword");
+      if (!sources.length) sources = await tryField("author.name.keyword");
+      return sources;
     } catch (error) {
       this.logger.error("Failed to fetch sources", error instanceof Error ? error.stack : error);
       throw new ServiceUnavailableException("Elasticsearch service is unavailable");
@@ -1093,37 +1104,28 @@ export class DashboardService {
 
   async getLanguages(): Promise<{ code: string; name: string; count: number }[]> {
     try {
-      const SAMPLE = 1000;
       const result = await this.elasticsearchService.search({
         index: "posts",
-        from: 0,
-        size: SAMPLE,
-        query: { match_all: {} },
-        _source: ["language", "text_content"],
+        size: 0,
+        query: { exists: { field: "language" } },
+        aggs: {
+          languages: { terms: { field: "language.keyword", size: 50 } },
+        },
       });
 
-      const hits = (result as any).hits?.hits || [];
-      const counts = new Map<string, { name: string; count: number }>();
+      const buckets = (result.aggregations as any)?.languages?.buckets || [];
 
-      for (const hit of hits) {
-        const s = hit._source || {};
-        const detected = resolveLanguage(s.language, s.text_content);
-        if (detected.code === "und") continue;
-        const existing = counts.get(detected.code);
-        if (existing) {
-          existing.count += 1;
-        } else {
-          counts.set(detected.code, { name: detected.name, count: 1 });
-        }
-      }
-
-      return Array.from(counts.entries())
-        .map(([code, { name, count }]) => ({ code, name, count }))
-        .sort((a, b) => b.count - a.count);
+      return buckets
+        .map((b: any) => ({
+          code: b.key,
+          name: resolveLanguage(b.key, "").name,
+          count: b.doc_count,
+        }))
+        .filter((l: any) => l.code !== "und");
     } catch (error) {
       this.logger.error(
         "Failed to fetch languages",
-        error instanceof Error ? error.stack : error
+        error instanceof Error ? error.stack : error,
       );
       throw new ServiceUnavailableException("Elasticsearch service is unavailable");
     }
@@ -1174,5 +1176,113 @@ export class DashboardService {
       );
       throw new ServiceUnavailableException("Translation service is unavailable");
     }
+  }
+
+  async semanticSearch(
+    query: string,
+    page = 1,
+    pageSize = 20
+  ): Promise<{ items: SemanticSearchItem[]; total: number; page: number; pageSize: number; totalPages: number }> {
+    if (!query?.trim()) {
+      throw new BadRequestException("query parameter is required");
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new ServiceUnavailableException(
+        "Semantic search is not configured — GEMINI_API_KEY is missing"
+      );
+    }
+
+    // Step 1: Embed the query text via Gemini embedding API (must match pipeline: gemini-embedding-2, 768 dims)
+    const model = process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2";
+    const dims = parseInt(process.env.GEMINI_EMBEDDING_DIMS || "768", 10);
+    const embeddingResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: `models/${model}`,
+          content: { parts: [{ text: query.trim() }] },
+          outputDimensionality: dims,
+        }),
+      }
+    );
+
+    if (!embeddingResponse.ok) {
+      const errBody = await embeddingResponse.text();
+      this.logger.error(`Gemini embedding API error: ${errBody}`);
+      throw new ServiceUnavailableException("Failed to generate query embedding");
+    }
+
+    const embeddingData = await embeddingResponse.json();
+    const queryVector: number[] = embeddingData?.embedding?.values;
+    if (!queryVector?.length) {
+      throw new ServiceUnavailableException("Empty embedding returned from Gemini");
+    }
+
+    const from = (page - 1) * pageSize;
+    // Step 2: Run purely semantic kNN search with a minimum score threshold
+    // Cosine similarity in ES is scaled to (1 + cosine)/2. Baseline for unrelated text is ~0.75.
+    // min_score of 0.80 was too aggressive and filtered out relevant results, especially
+    // against a small corpus — lowered to 0.55 to allow more recall while still cutting noise.
+    const result = await this.elasticsearchService.search({
+      index: "posts",
+      from,
+      size: pageSize,
+      min_score: 0.55,
+      knn: {
+        field: "text_vector",
+        query_vector: queryVector,
+        k: Math.max(from + pageSize, 50),
+        num_candidates: Math.max((from + pageSize) * 10, 500),
+      } as any,
+      _source: { excludes: ["text_vector"] },
+    });
+
+    const hits = (result as any).hits?.hits || [];
+    const items = hits.map((hit: any) => {
+      const s = hit._source || {};
+      const toStr = (v: any): string => {
+        if (v == null) return "";
+        if (typeof v === "string") return v;
+        if (Array.isArray(v)) return v.join(", ");
+        if (typeof v === "object") return v.username || v.name || v.title || JSON.stringify(v);
+        return String(v);
+      };
+      const toArr = (v: any): string[] =>
+        Array.isArray(v) ? v.map((x: any) => typeof x === "object" && x !== null ? (x.username || x.name || String(x)) : String(x)) : v ? [String(v)] : [];
+      const toNum = (v: any): number => {
+        const n = typeof v === "number" ? v : parseFloat(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+      const rawCountry = toStr(s.country_of_origin);
+      return {
+        postId: toStr(s.post_id) || hit._id,
+        author: toStr(s.author) || "Unknown",
+        platform: toStr(s.platform) || "unknown",
+        textContent: toStr(s.text_content),
+        country: rawCountry ? this.normalizeCountry(rawCountry) : null,
+        createdAt: s.created_at ?? null,
+        antisemitismScore: s.antisemitism_score == null ? null : toNum(s.antisemitism_score),
+        sentiment: s.sentiment ? toStr(s.sentiment) : null,
+        keywords: toArr(s.keywords),
+        hashtags: toArr(s.hashtags),
+        ihraLabels: toArr(s.ihra_labels),
+        mentions: toArr(s.mentions),
+        url: s.url ? toStr(s.url) : null,
+        language: s.language ? String(s.language) : null,
+        channel: s.channel ? toStr(s.channel) : null,
+        likes: toNum(s.likes),
+        shares: toNum(s.shares),
+        commentsCount: toNum(s.comments_count),
+        views: toNum(s.views),
+        similarityScore: hit._score ?? 0,
+      };
+    });
+    const totalRaw = (result as any).hits?.total;
+    const total = typeof totalRaw === "number" ? totalRaw : totalRaw?.value || 0;
+    return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 }
