@@ -1,8 +1,8 @@
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { DashboardService } from "./dashboard.service";
 import { ElasticsearchModule } from "@nestjs/elasticsearch";
 import { DashboardController } from "./dashboard.controller";
-import { DashboardService } from "./dashboard.service";
 
 @Module({
   imports: [

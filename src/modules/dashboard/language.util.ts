@@ -82,7 +82,8 @@ export function resolveLanguage(
   // 1. Use stored value if it maps to a known language
   if (stored && typeof stored === "string") {
     const s = stored.trim().toLowerCase();
-    if (ISO1_TO_NAME[s]) return { code: s === "iw" ? "he" : s, name: ISO1_TO_NAME[s] };
+    if (ISO1_TO_NAME[s])
+      return { code: s === "iw" ? "he" : s, name: ISO1_TO_NAME[s] };
   }
 
   // 2. Detect from text

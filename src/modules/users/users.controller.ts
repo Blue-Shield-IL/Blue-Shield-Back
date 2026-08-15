@@ -1,3 +1,10 @@
+import { memoryStorage } from "multer";
+import { UsersService } from "./users.service";
+import { JwtPayload } from "@Interfaces/jwt-payload";
+import { CurrentUser } from "@Decorators/user.decorator";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { uploadBufferToCloudinary } from "@Providers/cloudinary/cloudinary.provider";
 import {
   Body,
   Controller,
@@ -8,13 +15,6 @@ import {
   UseInterceptors,
   BadRequestException,
 } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
-import { memoryStorage } from "multer";
-import { UsersService } from "./users.service";
-import { CurrentUser } from "@Decorators/user.decorator";
-import { JwtPayload } from "@Interfaces/jwt-payload";
-import { UpdateProfileDto } from "./dto/update-profile.dto";
-import { uploadBufferToCloudinary } from "@Providers/cloudinary/cloudinary.provider";
 
 @Controller("users")
 export class UsersController {
@@ -38,7 +38,7 @@ export class UsersController {
   @Patch("me")
   async updateProfile(
     @CurrentUser() { sub }: JwtPayload,
-    @Body() dto: UpdateProfileDto,
+    @Body() dto: UpdateProfileDto
   ) {
     const user = await this.usersService.updateProfile(sub, dto);
     if (!user) return null;
@@ -57,7 +57,7 @@ export class UsersController {
   @UseInterceptors(FileInterceptor("file", { storage: memoryStorage() }))
   async uploadProfilePic(
     @CurrentUser() { sub }: JwtPayload,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File
   ) {
     if (!file) {
       throw new BadRequestException("No file uploaded");

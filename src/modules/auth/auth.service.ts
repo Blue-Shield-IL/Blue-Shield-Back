@@ -56,10 +56,20 @@ export class AuthService {
   };
 
   private generateTokens = async (
-    user: { id: string; email: string; name: string | null; role?: string | null },
+    user: {
+      id: string;
+      email: string;
+      name: string | null;
+      role?: string | null;
+    },
     rememberMe?: boolean
   ) => {
-    const payload = { sub: user.id, email: user.email, name: user.name, role: user.role ?? null };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role ?? null,
+    };
     const accessToken = await this.jwtService.signAsync(payload);
 
     const refreshToken = crypto.randomBytes(64).toString("hex");
@@ -161,7 +171,11 @@ export class AuthService {
     const { accessToken, refreshToken: newRefreshToken } =
       await this.generateTokens(storedToken.user, true);
 
-    return { accessToken, refreshToken: newRefreshToken, user: storedToken.user };
+    return {
+      accessToken,
+      refreshToken: newRefreshToken,
+      user: storedToken.user,
+    };
   };
 
   public logout = async (
