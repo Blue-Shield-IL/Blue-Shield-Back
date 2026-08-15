@@ -106,8 +106,7 @@ export class DashboardService {
         | { earliest: EsValueAgg; latest: EsValueAgg }
         | undefined;
       return {
-        earliest:
-          aggs?.earliest?.value_as_string || new Date().toISOString(),
+        earliest: aggs?.earliest?.value_as_string || new Date().toISOString(),
         latest: aggs?.latest?.value_as_string || new Date().toISOString(),
       };
     } catch (error) {
@@ -169,7 +168,7 @@ export class DashboardService {
         | undefined;
       const buckets = aggs?.trend?.buckets || [];
 
-      return buckets.map((bucket) => ({
+      return buckets.map(bucket => ({
         date: bucket.key_as_string,
         avgScore: (bucket.avg_score as EsValueAgg)?.value || 0,
       }));
@@ -232,7 +231,7 @@ export class DashboardService {
 
       const allSentiments = ["Supportive", "Neutral", "Negative", "Hostile"];
 
-      return allSentiments.map((sentiment) => ({
+      return allSentiments.map(sentiment => ({
         sentiment,
         count: bucketMap.get(sentiment) || 0,
       }));
@@ -291,7 +290,7 @@ export class DashboardService {
         | undefined;
       const buckets = aggs?.top_keywords?.buckets || [];
 
-      return buckets.map((bucket) => ({
+      return buckets.map(bucket => ({
         keyword: bucket.key,
         count: bucket.doc_count,
       }));
@@ -344,9 +343,7 @@ export class DashboardService {
         },
       })) as unknown as EsSearchResponse;
 
-      const aggs = result.aggregations as
-        | { countries: EsTermsAgg }
-        | undefined;
+      const aggs = result.aggregations as { countries: EsTermsAgg } | undefined;
       const buckets = aggs?.countries?.buckets || [];
 
       // Normalize and merge synonymous country names (e.g. "USA" + "United States")
@@ -401,7 +398,7 @@ export class DashboardService {
     return raw
       .trim()
       .split(/\s+/)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(" ");
   }
 
@@ -643,7 +640,7 @@ export class DashboardService {
         | { trend: EsDateHistogramAgg }
         | undefined;
       const buckets = aggs?.trend?.buckets || [];
-      return buckets.map((b) => ({
+      return buckets.map(b => ({
         date: b.key_as_string,
         views: Math.round((b.views as EsValueAgg)?.value || 0),
         posts: b.doc_count,
@@ -719,8 +716,7 @@ export class DashboardService {
 
       return buckets.map((b, i) => {
         const raw = b.key;
-        const name =
-          typeof raw === "string" ? raw : String(raw) || "Unknown";
+        const name = typeof raw === "string" ? raw : String(raw) || "Unknown";
         return {
           rank: i + 1,
           name,
@@ -801,7 +797,7 @@ export class DashboardService {
       })) as unknown as EsSearchResponse;
 
       const hits = result.hits?.hits || [];
-      return hits.map((hit) => {
+      return hits.map(hit => {
         const s = hit._source;
         const rawAuthor = s.author;
         const author =
@@ -836,16 +832,12 @@ export class DashboardService {
           preview: String(s.text_content || ""),
           postId: String(s.post_id || hit._id || ""),
           platform: String(s.platform || "unknown"),
-          country: s.country_of_origin
-            ? String(s.country_of_origin)
-            : null,
+          country: s.country_of_origin ? String(s.country_of_origin) : null,
           channel,
           language: s.language ? String(s.language) : null,
           sentiment: s.sentiment ? String(s.sentiment) : null,
           antisemitismScore:
-            s.antisemitism_score != null
-              ? Number(s.antisemitism_score)
-              : null,
+            s.antisemitism_score != null ? Number(s.antisemitism_score) : null,
           keywords: Array.isArray(s.keywords)
             ? (s.keywords as string[]).map(String)
             : [],
@@ -924,7 +916,7 @@ export class DashboardService {
       const buckets = aggs?.top_authors?.buckets || [];
       const total = aggs?.total?.value || 1;
 
-      return buckets.map((bucket) => ({
+      return buckets.map(bucket => ({
         author: bucket.key,
         count: bucket.doc_count,
         percentage: Math.round((bucket.doc_count / total) * 1000) / 10,
@@ -967,7 +959,9 @@ export class DashboardService {
       const must: Record<string, unknown>[] = [];
       const filter: Record<string, unknown>[] = [];
 
-      // Free-text search across content + author
+      // Require every free-text term to match in one searchable field. This
+      // prevents pasted post content from matching hundreds of posts that only
+      // share a few common words, while fuzziness still tolerates minor typos.
       if (params.search) {
         must.push({
           multi_match: {
@@ -980,6 +974,7 @@ export class DashboardService {
               "channel.username",
             ],
             type: "best_fields",
+            operator: "and",
             fuzziness: "AUTO",
           },
         });
@@ -990,7 +985,7 @@ export class DashboardService {
         v
           ? v
               .split(",")
-              .map((s) => s.trim())
+              .map(s => s.trim())
               .filter(Boolean)
           : [];
 
@@ -1173,7 +1168,9 @@ export class DashboardService {
       const hits = result.hits?.hits || [];
       const totalRaw = result.hits?.total;
       const total =
-        typeof totalRaw === "number" ? totalRaw : (totalRaw as { value: number })?.value || 0;
+        typeof totalRaw === "number"
+          ? totalRaw
+          : (totalRaw as { value: number })?.value || 0;
 
       const items: PostItem[] = hits.map(mapHit);
 
@@ -1230,7 +1227,7 @@ export class DashboardService {
 
       const aggs = result.aggregations as { ihra: EsTermsAgg } | undefined;
       const buckets = aggs?.ihra?.buckets || [];
-      return buckets.map((b) => ({
+      return buckets.map(b => ({
         label: b.key,
         count: b.doc_count,
       }));
@@ -1342,11 +1339,9 @@ export class DashboardService {
         },
       })) as unknown as EsSearchResponse;
 
-      const aggs = result.aggregations as
-        | { countries: EsTermsAgg }
-        | undefined;
+      const aggs = result.aggregations as { countries: EsTermsAgg } | undefined;
       const buckets = aggs?.countries?.buckets || [];
-      return buckets.map((b) => ({
+      return buckets.map(b => ({
         country: this.normalizeCountry(b.key),
         count: b.doc_count,
       }));
@@ -1374,11 +1369,9 @@ export class DashboardService {
           },
         })) as unknown as EsSearchResponse;
 
-        const aggs = result.aggregations as
-          | { sources: EsTermsAgg }
-          | undefined;
+        const aggs = result.aggregations as { sources: EsTermsAgg } | undefined;
         const buckets = aggs?.sources?.buckets || [];
-        return buckets.map((b) => ({
+        return buckets.map(b => ({
           name: b.key,
           count: b.doc_count,
         }));
@@ -1416,18 +1409,16 @@ export class DashboardService {
         },
       })) as unknown as EsSearchResponse;
 
-      const aggs = result.aggregations as
-        | { languages: EsTermsAgg }
-        | undefined;
+      const aggs = result.aggregations as { languages: EsTermsAgg } | undefined;
       const buckets = aggs?.languages?.buckets || [];
 
       return buckets
-        .map((b) => ({
+        .map(b => ({
           code: b.key,
           name: resolveLanguage(b.key, "").name,
           count: b.doc_count,
         }))
-        .filter((l) => l.code !== "und");
+        .filter(l => l.code !== "und");
     } catch (error) {
       this.logger.error(
         "Failed to fetch languages",
@@ -1468,10 +1459,9 @@ export class DashboardService {
       // data[0] is an array of segments; each segment[0] is translated text
       const segments: unknown[] = Array.isArray(data?.[0]) ? data[0] : [];
       const translatedText = segments
-        .map((seg) => (Array.isArray(seg) ? (seg[0] as string) : ""))
+        .map(seg => (Array.isArray(seg) ? (seg[0] as string) : ""))
         .join("");
-      const detectedSource =
-        (typeof data?.[2] === "string" && data[2]) || sl;
+      const detectedSource = (typeof data?.[2] === "string" && data[2]) || sl;
 
       return {
         translatedText: translatedText || input,
@@ -1564,7 +1554,7 @@ export class DashboardService {
     })) as unknown as EsSearchResponse;
 
     const hits = result.hits?.hits || [];
-    const items: SemanticSearchItem[] = hits.map((hit) => {
+    const items: SemanticSearchItem[] = hits.map(hit => {
       const s = hit._source;
       const toStr = (v: unknown): string => {
         if (v == null) return "";

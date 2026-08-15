@@ -246,7 +246,7 @@ export class AuthService {
         throw new UnauthorizedException("Invalid Google token");
       }
 
-      const { email, sub: googleId, name } = payload;
+      const { email, sub: googleId, name, picture } = payload;
 
       const existingUser = await this.usersService.findByEmail(email);
 
@@ -257,6 +257,7 @@ export class AuthService {
         googleId: string | null;
         isOnboarded: boolean;
         authProvider: string;
+        profilePicUrl: string | null;
       };
 
       if (existingUser) {
@@ -269,6 +270,11 @@ export class AuthService {
           existingUser.name = name;
         }
 
+        if (!existingUser.profilePicUrl && picture) {
+          await this.usersService.updateProfilePic(existingUser.id, picture);
+          existingUser.profilePicUrl = picture;
+        }
+
         user = existingUser;
       } else {
         user = await this.usersService.create({
@@ -276,6 +282,7 @@ export class AuthService {
           name: name || null,
           googleId,
           authProvider: "google",
+          profilePicUrl: picture ?? null,
         });
       }
 
