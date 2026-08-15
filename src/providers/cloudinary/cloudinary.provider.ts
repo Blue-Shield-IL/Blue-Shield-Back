@@ -12,7 +12,7 @@ export const getCloudinary = () => {
 
 export const uploadBufferToCloudinary = (
   buffer: Buffer,
-  options: { folder: string; public_id: string },
+  options: { folder: string; public_id: string }
 ): Promise<{ secure_url: string }> => {
   const client = getCloudinary();
 
@@ -29,7 +29,7 @@ export const uploadBufferToCloudinary = (
           return reject(error);
         }
         resolve(result);
-      },
+      }
     );
 
     uploadStream.end(buffer);

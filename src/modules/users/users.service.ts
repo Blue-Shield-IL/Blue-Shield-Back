@@ -40,7 +40,7 @@ export class UsersService {
 
   public updateProfile = async (
     userId: string,
-    data: { name?: string; email?: string; role?: string },
+    data: { name?: string; email?: string; role?: string }
   ) => {
     const update: Partial<User> = {};
     if (data.name !== undefined) update.name = data.name;

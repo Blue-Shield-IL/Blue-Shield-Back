@@ -1,8 +1,7 @@
-import { Controller, Get, Query } from "@nestjs/common";
-import { DashboardService } from "./dashboard.service";
-import { DashboardQueryDto } from "./dto/dashboard-query.dto";
 import { PostSearchDto } from "./dto/post-search.dto";
-import { Public } from "@Decorators/public.decorator";
+import { DashboardService } from "./dashboard.service";
+import { Controller, Get, Query } from "@nestjs/common";
+import { DashboardQueryDto } from "./dto/dashboard-query.dto";
 
 @Controller("dashboard")
 export class DashboardController {
@@ -10,37 +9,66 @@ export class DashboardController {
 
   private parseKeywords(csv?: string): string[] | undefined {
     if (!csv) return undefined;
-    return csv.split(",").map((k) => k.trim()).filter(Boolean);
+    return csv
+      .split(",")
+      .map(k => k.trim())
+      .filter(Boolean);
   }
 
   @Get("stats")
   async getStats(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getStats(query.startDate, query.endDate, this.parseKeywords(query.keywords));
+    return this.dashboardService.getStats(
+      query.startDate,
+      query.endDate,
+      this.parseKeywords(query.keywords)
+    );
   }
 
   @Get("threat-trend")
   async getThreatTrend(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getThreatTrend(query.startDate, query.endDate, query.interval, this.parseKeywords(query.keywords));
+    return this.dashboardService.getThreatTrend(
+      query.startDate,
+      query.endDate,
+      query.interval,
+      this.parseKeywords(query.keywords)
+    );
   }
 
   @Get("sentiment")
   async getSentimentDistribution(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getSentimentDistribution(query.startDate, query.endDate, this.parseKeywords(query.keywords));
+    return this.dashboardService.getSentimentDistribution(
+      query.startDate,
+      query.endDate,
+      this.parseKeywords(query.keywords)
+    );
   }
 
   @Get("top-keywords")
   async getTopKeywords(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getTopKeywords(query.startDate, query.endDate, query.limit, this.parseKeywords(query.keywords));
+    return this.dashboardService.getTopKeywords(
+      query.startDate,
+      query.endDate,
+      query.limit,
+      this.parseKeywords(query.keywords)
+    );
   }
 
   @Get("geographic")
   async getGeographicDistribution(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getGeographicDistribution(query.startDate, query.endDate, this.parseKeywords(query.keywords));
+    return this.dashboardService.getGeographicDistribution(
+      query.startDate,
+      query.endDate,
+      this.parseKeywords(query.keywords)
+    );
   }
 
   @Get("top-authors")
   async getTopAuthors(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getTopAuthors(query.startDate, query.endDate, query.limit);
+    return this.dashboardService.getTopAuthors(
+      query.startDate,
+      query.endDate,
+      query.limit
+    );
   }
 
   @Get("posts")
@@ -65,27 +93,49 @@ export class DashboardController {
 
   @Get("activity-trend")
   async getActivityTrend(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getActivityTrend(query.startDate, query.endDate, query.interval, this.parseKeywords(query.keywords));
+    return this.dashboardService.getActivityTrend(
+      query.startDate,
+      query.endDate,
+      query.interval,
+      this.parseKeywords(query.keywords)
+    );
   }
 
   @Get("top-sources")
   async getTopSources(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getTopSources(query.startDate, query.endDate, query.limit, this.parseKeywords(query.keywords));
+    return this.dashboardService.getTopSources(
+      query.startDate,
+      query.endDate,
+      query.limit,
+      this.parseKeywords(query.keywords)
+    );
   }
 
   @Get("most-viewed")
   async getMostViewed(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getMostViewed(query.startDate, query.endDate, query.limit, this.parseKeywords(query.keywords));
+    return this.dashboardService.getMostViewed(
+      query.startDate,
+      query.endDate,
+      query.limit,
+      this.parseKeywords(query.keywords)
+    );
   }
 
   @Get("ihra-breakdown")
   async getIhraBreakdown(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getIhraBreakdown(query.startDate, query.endDate, this.parseKeywords(query.keywords));
+    return this.dashboardService.getIhraBreakdown(
+      query.startDate,
+      query.endDate,
+      this.parseKeywords(query.keywords)
+    );
   }
 
   @Get("topic-breakdown")
   async getTopicBreakdown(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.getTopicBreakdown(query.startDate, query.endDate);
+    return this.dashboardService.getTopicBreakdown(
+      query.startDate,
+      query.endDate
+    );
   }
 
   @Get("date-bounds")

@@ -5,7 +5,7 @@ export class AddProfilePicUrlToUsers1786549335357 implements MigrationInterface 
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE users ADD COLUMN profile_pic_url varchar NULL`,
+      `ALTER TABLE users ADD COLUMN profile_pic_url varchar NULL`
     );
   }
 
